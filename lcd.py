@@ -14,14 +14,14 @@ class LCD_1inch54(framebuf.FrameBuffer):
     def __init__(self):
         self.width = 240
         self.height = 240
-        
+
         self.cs = Pin(CS, Pin.OUT)
         self.rst = Pin(RST, Pin.OUT)
-        
+
         self.bl = PWM(Pin(BL))  # BL pin
         self.bl.freq(1000)
         self.bl.duty_u16(32768)
-        
+
         self.cs(1)
         self.spi = SPI(1)
         self.spi = SPI(1, 1000_000)
@@ -31,7 +31,7 @@ class LCD_1inch54(framebuf.FrameBuffer):
         self.buffer = bytearray(self.height * self.width * 2)
         super().__init__(self.buffer, self.width, self.height, framebuf.RGB565)
         self.init_display()
-        
+
         # Define colors
         self.red = 0x07E0
         self.green = 0x001f
@@ -39,7 +39,7 @@ class LCD_1inch54(framebuf.FrameBuffer):
         self.white = 0xffff
         self.black = 0x0000
         self.brown = 0X8430
-        
+
     def write_cmd(self, cmd):
         self.cs(1)
         self.dc(0)
@@ -59,11 +59,11 @@ class LCD_1inch54(framebuf.FrameBuffer):
         self.rst(1)
         self.rst(0)
         self.rst(1)
-        
+
         self.write_cmd(0x36)
         self.write_data(0x00)
 
-        self.write_cmd(0x3A) 
+        self.write_cmd(0x3A)
         self.write_data(0x05)
 
         self.write_cmd(0xB2)
@@ -74,7 +74,7 @@ class LCD_1inch54(framebuf.FrameBuffer):
         self.write_data(0x33)
 
         self.write_cmd(0xB7)
-        self.write_data(0x35) 
+        self.write_data(0x35)
 
         self.write_cmd(0xBB)
         self.write_data(0x19)
@@ -86,13 +86,13 @@ class LCD_1inch54(framebuf.FrameBuffer):
         self.write_data(0x01)
 
         self.write_cmd(0xC3)
-        self.write_data(0x12)   
+        self.write_data(0x12)
 
         self.write_cmd(0xC4)
         self.write_data(0x20)
 
         self.write_cmd(0xC6)
-        self.write_data(0x0F) 
+        self.write_data(0x0F)
 
         self.write_cmd(0xD0)
         self.write_data(0xA4)
@@ -129,7 +129,7 @@ class LCD_1inch54(framebuf.FrameBuffer):
         self.write_data(0x1F)
         self.write_data(0x20)
         self.write_data(0x23)
-        
+
         self.write_cmd(0x21)
         self.write_cmd(0x11)
         self.write_cmd(0x29)
@@ -140,42 +140,42 @@ class LCD_1inch54(framebuf.FrameBuffer):
         self.write_data(0x00)
         self.write_data(0x00)
         self.write_data(0xef)
-        
+
         self.write_cmd(0x2B)
         self.write_data(0x00)
         self.write_data(0x00)
         self.write_data(0x00)
         self.write_data(0xEF)
-        
+
         self.write_cmd(0x2C)
-        
+
         self.cs(1)
         self.dc(1)
         self.cs(0)
         self.spi.write(self.buffer)
         self.cs(1)
-        
+
     def set_windows(self, Xstart, Ystart, Xend, Yend):
         self.write_cmd(0x2A)
         self.write_data(0x00)
         self.write_data(Xstart)
         self.write_data(0x00)
         self.write_data(Xend-1)
-        
+
         self.write_cmd(0x2B)
         self.write_data(0x00)
         self.write_data(Ystart)
         self.write_data(0x00)
         self.write_data(Yend-1)
         self.write_cmd(0x2C)
-        
+
     def windows_show(self, Xstart, Ystart, Xend, Yend):
         if Xstart > Xend:
             data = Xstart
             Xstart = Xend
             Xend = data
 
-        if Ystart > Yend:        
+        if Ystart > Yend:
             data = Ystart
             Ystart = Yend
             Yend = data
@@ -184,21 +184,21 @@ class LCD_1inch54(framebuf.FrameBuffer):
             Xstart = 10
         if Ystart <= 10:
             Ystart = 10
-            
+
         Xstart -= 10
         Xend += 10
         Ystart -= 10
         Yend += 10
-        
-        self.set_windows(Xstart, Ystart, Xend, Yend)      
+
+        self.set_windows(Xstart, Ystart, Xend, Yend)
         self.cs(1)
         self.dc(1)
         self.cs(0)
-        for i in range(Ystart, Yend-1):             
-            Addr = (Xstart * 2) + (i * 240 * 2)                
+        for i in range(Ystart, Yend-1):
+            Addr = (Xstart * 2) + (i * 240 * 2)
             self.spi.write(self.buffer[Addr : Addr+((Xend-Xstart)*2)])
         self.cs(1)
-    
+
     def write_text(self, text, x, y, size, color):
         background = self.pixel(x, y)
         info = []
@@ -210,4 +210,4 @@ class LCD_1inch54(framebuf.FrameBuffer):
         self.text(text, x, y, background)
         for px_info in info:
             self.fill_rect(size*px_info[0] - (size-1)*x, size*px_info[1] - (size-1)*y, size, size, px_info[2])
-            
+
