@@ -1,8 +1,8 @@
 # Waveshare PICODEX
 
 A standalone, offline Pokémon picture book for the **Waveshare
-RP2350-Touch-LCD-1.54**, running MicroPython 1.29. It boots directly to the first
-Pokémon: **no launcher, no app selection, no Virtual Pokemon**.
+RP2350-Touch-LCD-1.54**, running MicroPython 1.29. A Pokémon logo and Poké Ball splash shows `Loading....` for five seconds,
+then opens the first Pokémon: **no launcher, no app selection, no Virtual Pokemon**.
 
 Includes 1,538 high-resolution 240 × 240 artwork entries, Spanish descriptions,
 touch and button controls, motion shuffle, charging display and shutdown screen.
@@ -21,7 +21,7 @@ touch and button controls, motion shuffle, charging display and shutdown screen.
   on battery. USB can keep the device powered after its screen goes black.
 
 Power-on starts from the first entry. There is no menu to return to, no pet
-state, no care meters, and no five-second launcher splash.
+state or care meters. The startup splash leads straight into PICODEX.
 
 ## Files and setup
 
@@ -43,6 +43,8 @@ Copy these files to the board root:
 
 ```text
 main.py
+boot_splash.mpy
+boot_splash.dat
 lcd.mpy
 frame_app.mpy
 dex_description.mpy
@@ -75,7 +77,7 @@ new `main.py`; they do not need to be deleted to run this version.
 The matching `.mpy` firmware modules are included. Rebuild on the host with:
 
 ```sh
-for module in lcd frame_app dex_description power_screen charge_overlay shutdown_screen sdcard; do
+for module in boot_splash lcd frame_app dex_description power_screen charge_overlay shutdown_screen sdcard; do
   uv tool run --from mpy-cross mpy-cross "$module.py"
 done
 python3 -m unittest discover -s tests -v
@@ -101,8 +103,10 @@ of RGB565 data. `pokemon_order.bin` maps National Pokédex order to archive indi
 Hardware regression scripts in `tests/hardware_description_*.py` use simulated
 inputs with a real board, LCD and SD card. Compile and upload them as `.mpy`
 modules before importing them. Host tests do not substitute for physical touch,
-button, SD-card and power checks. This standalone variant has not yet been
-installed or physically tested on the board.
+button, SD-card and power checks. The standalone firmware has been installed on the board. Simulated-input
+on-board checks passed for byte-identical description return and shutdown
+control flow despite failing touch reads. Physical power cutoff requires owner
+handling.
 
 ## Charging display and known limitations
 
@@ -133,6 +137,19 @@ alone never sets the percentage to 100%.
 Description return restores a flash-backed artwork snapshot, avoiding the
 previous low-memory decompression failure. Power handling precedes touch
 rendering, and shared I2C reads have a 50 ms timeout.
+
+## Rebuild the startup splash
+
+The original splash assets and attribution are in `assets/splash/`. To rebuild:
+
+```sh
+uv run --with pillow --with resvg-py python build_boot_splash.py
+```
+
+The splash reuses the existing framebuffer and its module is unloaded before
+PICODEX imports, preserving heap space for artwork. Missing or incomplete
+splash data is logged and PICODEX still starts. On-board startup verification
+confirmed a 5,003 ms splash followed by the first artwork, with no menu.
 
 ## Sources and rights
 

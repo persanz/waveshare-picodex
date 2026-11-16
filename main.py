@@ -9,6 +9,12 @@ gc.collect()
 lcd = LCD_1inch54()
 lcd.write_cmd(0x36)
 lcd.write_data(0x00)
+import boot_splash
+boot_splash.show(lcd)
+# Unload the splash before artwork decoding: a second framebuffer will not fit.
+import sys
+del sys.modules['boot_splash']
+del boot_splash
 gc.collect()
 import frame_app
 frame_app.start(lcd, power, button)

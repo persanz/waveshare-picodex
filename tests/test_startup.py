@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 
 class StartupTests(unittest.TestCase):
-    def test_boots_directly_to_picodex_after_allocating_display(self):
+    def test_splash_precedes_picodex_without_loading_menu(self):
         events = []
         pins = {}
         class Pin:
@@ -31,12 +31,15 @@ class StartupTests(unittest.TestCase):
             'gc': types.SimpleNamespace(threshold=lambda value: events.append(('threshold', value)), collect=lambda: None),
             'lcd': types.SimpleNamespace(LCD_1inch54=LCD),
             'frame_app': types.SimpleNamespace(start=start),
+            'boot_splash': types.SimpleNamespace(show=lambda lcd: events.append(('splash',))),
         }
         real_import = builtins.__import__
         def observe(name, *args, **kwargs):
-            self.assertNotIn(name, ('boot_menu', 'companion_app', 'companion_state', 'boot_splash'))
+            self.assertNotIn(name, ('boot_menu', 'companion_app', 'companion_state'))
             if name == 'frame_app':
                 self.assertIn(('display',), events)
+                self.assertIn(('splash',), events)
+                self.assertNotIn('boot_splash', sys.modules)
                 events.append(('app_import',))
             return real_import(name, *args, **kwargs)
         with patch.dict(sys.modules, modules), patch('builtins.__import__', observe):
@@ -45,4 +48,5 @@ class StartupTests(unittest.TestCase):
         self.assertIn(('pin', 28, {'value': 1}), events)
         self.assertIn(('command', 0x36), events)
         self.assertIn(('data', 0x00), events)
+        self.assertLess(events.index(('display',)), events.index(('splash',)))
         self.assertEqual(events[-2:], [('app_import',), ('start',)])
