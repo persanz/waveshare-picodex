@@ -11,9 +11,7 @@ def capture():
  hashes.append(hashlib.sha256(lcd.buffer).digest())
  real_show()
 lcd.show=capture
-import frame_app,power_screen
-power_screen.suppressed=True
-del power_screen
+import frame_app
 real_i2c=machine.I2C
 class Bus:
  def __init__(self,*a,**kw):

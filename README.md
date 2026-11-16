@@ -5,7 +5,8 @@ RP2350-Touch-LCD-1.54**, running MicroPython 1.29. A Pokémon logo and Poké Bal
 then opens the first Pokémon: **no launcher, no app selection, no Virtual Pokemon**.
 
 Includes 1,538 high-resolution 240 × 240 artwork entries, Spanish descriptions,
-touch and button controls, motion shuffle, charging display and shutdown screen.
+touch and button controls, motion shuffle and shutdown screen.
+There is no battery percentage display or automatic charging popup.
 
 ## Controls
 
@@ -48,8 +49,6 @@ boot_splash.dat
 lcd.mpy
 frame_app.mpy
 dex_description.mpy
-power_screen.mpy
-charge_overlay.mpy
 shutdown_screen.mpy
 sdcard.mpy
 pokemon_order.bin
@@ -77,7 +76,7 @@ new `main.py`; they do not need to be deleted to run this version.
 The matching `.mpy` firmware modules are included. Rebuild on the host with:
 
 ```sh
-for module in boot_splash lcd frame_app dex_description power_screen charge_overlay shutdown_screen sdcard; do
+for module in boot_splash lcd frame_app dex_description shutdown_screen sdcard; do
   uv tool run --from mpy-cross mpy-cross "$module.py"
 done
 python3 -m unittest discover -s tests -v
@@ -108,31 +107,12 @@ on-board checks passed for byte-identical description return and shutdown
 control flow despite failing touch reads. Physical power cutoff requires owner
 handling.
 
-## Charging display and known limitations
+## Power and memory
 
-The shared charging overlay is retained from the source project. It shows a
-large voltage-derived percentage in a red/orange/green ring. Tap anywhere to
-return to the exact previous artwork or description page. It saves a temporary
-framebuffer in internal flash instead of allocating a second one in RAM.
-
-**Open issue inherited from the source:** the screen can also appear during a
-battery-only power-on. GPIO17 is a board-specific indication, not a dedicated
-VBUS sensor. A recorded USB cable cycle showed high/low/high, but the 700 ms
-startup rule is not a reliable proof of external power. Dismissal lasts while
-high; 1,500 ms low re-arms it. Further battery-only startup measurements are
-needed. No GPIO is guessed or repurposed in this derivative.
-
-`power_screen.py` retains temporary boot logging to `/bootlog.csv`: at most once
-per 250 ms during the first 15 seconds after module load, with an approximately
-1,500-byte cap. It writes flash and should be removed when the startup issue is
-resolved. The diagnostic log is not part of the repository.
-
-GPIO29 uses the original 3:1 divider and nominal 3.3 V ADC reference. The display
-curve maps the observed approximately 4.02 V plateau to 100%; that is an empirical
-display adjustment, not a multimeter calibration or proof of full charge. Other
-curve points are also estimated. Invalid readings show `--%`. An absent battery
-with a plausible charger voltage cannot reliably be identified. USB presence
-alone never sets the percentage to 100%.
+USB charging is handled by the board hardware. PICODEX does not display charge
+percentages, monitor the charger-status GPIO, or write startup battery logs.
+The left button still controls shutdown. USB can keep the board powered after
+the screen switches off.
 
 Description return restores a flash-backed artwork snapshot, avoiding the
 previous low-memory decompression failure. Power handling precedes touch

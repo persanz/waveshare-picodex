@@ -12,9 +12,7 @@ from lcd import LCD_1inch54
 gc.threshold(1024)
 gc.collect()
 lcd=LCD_1inch54()
-import frame_app,power_screen
-power_screen.suppressed=True
-del power_screen
+import frame_app
 real_i2c=machine.I2C
 class Bus:
  reads=0

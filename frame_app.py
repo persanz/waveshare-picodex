@@ -52,7 +52,7 @@ def start(lcd, power, button):
     description_pages = 1
 
     def cache_artwork():
-        # Reuse the flash-backed snapshot technique used by the charging screen.
+        # Save artwork without allocating a second framebuffer.
         # A second framebuffer will not fit in the MicroPython heap.
         with open('/picodex-return.tmp', 'wb') as f:
             f.write(lcd.buffer)
@@ -229,19 +229,8 @@ def start(lcd, power, button):
     touch_y = 0
     touch_used = False
 
-    from power_screen import Monitor
-    charging = Monitor()
-    del Monitor
     while True:
         try:
-            if charging.poll(lcd, imu if touch_ready else None, left_btn, power, wdt):
-                touch_down = False
-                touch_used = True
-                previous = None
-                motion_samples = 0
-                left_prev = left_btn.value()
-                right_prev = right_btn.value()
-                left_down_since = right_down_since = None
             if wdt is not None:
                 wdt.feed()
             left = _debounce(left_btn, left_prev)
