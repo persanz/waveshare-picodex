@@ -138,3 +138,40 @@ text and translation provenance are retained from the source project. The SD
 and Waveshare display driver sources retain their existing notices. No new
 license grant is asserted over upstream material. Pokémon artwork, names and
 trademarks belong to their respective owners.
+
+## Pikachu animation prototype
+
+On `feature/pikachu-animation`, Pikachu (#25) uses an optional 58-frame pixel
+animation. Other entries retain static artwork. Playback pauses during a centre
+hold and while reading descriptions; returning restores the held frame before
+animation resumes. A missing/invalid animation keeps Pikachu static.
+
+Rebuild the compact asset on the host:
+
+```sh
+uv run --no-project --python 3.11 --with pillow python build_pikachu_animation.py
+uv tool run --from mpy-cross mpy-cross pikachu_animation.py
+uv tool run --from mpy-cross mpy-cross frame_app.py
+```
+
+Upload `pikachu_animation.mpy` and the updated `frame_app.mpy` to the board root.
+Place `pikachu_animation.dat` on the SD at
+`/waveshare_pokemon_frame/pikachu_animation.dat`. Normal startup still begins
+with the first Pokémon; `frame_app.start(..., initial_index=37)` starts a
+one-session Pikachu demo for this archive/order. This does not persist a new
+startup selection.
+
+The asset is 47,253 bytes (about 46 KiB), with pre-expanded horizontal rows
+and independent raw-DEFLATE frames (512-byte window).
+The player repeats each row vertically into the existing framebuffer to display
+150 × 138 pixels, using one 300-byte row buffer plus decoder memory. It never buffers the entire
+animation or allocates another framebuffer. Firmware/code also consumes heap.
+The source GIF, blob hash and attribution are in `assets/animated/SOURCES.md`.
+See `tests/hardware_pikachu_animation.py` for the board playback/description test.
+
+On-board prototype checks passed animation playback, pausing for a description,
+and restoring the held frame before resuming. The measured integrated rate was
+approximately **2.1 frames/second**, below the GIF's intended 5–10 fps; playback
+is a feasibility test, not yet smooth game-speed animation. Minimum free heap
+in the instrumented test was 3,664 bytes. Six host tests passed. The static
+artwork archive is unchanged. The experiment is kept on a feature branch.

@@ -1,7 +1,7 @@
 import time
 from machine import Pin, SPI, I2C
 
-def start(lcd, power, button):
+def start(lcd, power, button, initial_index=0):
     import os
     import struct
     import deflate
@@ -45,6 +45,9 @@ def start(lcd, power, button):
             return ''
 
 
+    animation = None
+    animation_failed = False
+
     current_art_id = 0
     current_name = ''
     description_open = False
@@ -67,7 +70,13 @@ def start(lcd, power, button):
         os.remove('/picodex-return.tmp')
 
     def show_sprite(index):
-        nonlocal current_art_id, current_name, description_open
+        nonlocal current_art_id, current_name, description_open, animation, animation_failed
+        if animation is not None:
+            animation.close()
+            animation = None
+        import sys
+        if 'pikachu_animation' in sys.modules:
+            del sys.modules['pikachu_animation']
         # Release description-rendering garbage before allocating the decoder.
         import gc
         gc.collect()
@@ -131,8 +140,18 @@ def start(lcd, power, button):
             else:
                 lcd.text(num_label, (240 - len(num_label)*8)//2, 224, WHITE)
             lcd.show()
+        del stream, screen, source
         description_open = False
         print('Displaying Pokemon', number, name)
+        if current_art_id == 25 and not animation_failed:
+            try:
+                gc.collect()
+                from pikachu_animation import Player
+                animation = Player(lcd)
+                print('Pikachu animation ready:', animation.count, 'frames')
+            except (OSError, ValueError, MemoryError) as e:
+                animation_failed = True
+                print('Pikachu stays static:', e)
 
 
     try:
@@ -184,7 +203,7 @@ def start(lcd, power, button):
     except OSError as e:
         print('Touch unavailable:', e)
 
-    index = 0  # always start from the first Pokémon on every power-on
+    index = initial_index % count  # Normal power-on starts at the first entry.
     last_motion = time.ticks_add(time.ticks_ms(), -MOTION_COOLDOWN)
     last_sample = time.ticks_ms()
     previous = None
@@ -343,6 +362,14 @@ def start(lcd, power, button):
                             motion_samples = 0
                 except OSError:
                     touch_down = False
+
+            if animation is not None and not description_open and not touch_down:
+                try:
+                    animation.step(now)
+                except (OSError, ValueError, MemoryError) as e:
+                    print('Animation error; using static artwork:', e)
+                    animation_failed = True
+                    show_sprite(index)
 
             # Sustained movement chooses a different random artwork entry.
             # One change per shake; re-arm after half a second of calm.
