@@ -36,7 +36,7 @@ def silhouette(a):
 
 def build():
     ASSETS.mkdir(exist_ok=True)
-    entries=[];pikachu=None;shadow=None
+    entries=[];shadow=None
     with (ROOT/'pokemon_hd.dat').open('rb') as source, (ROOT/'quiz.dat').open('wb') as out:
         count=struct.unpack('<I',source.read(4))[0]
         out.write(struct.pack('<I',count));out.write(bytes(16*count))
@@ -46,7 +46,7 @@ def build():
             source.seek(offset);a=rgb(zlib.decompress(source.read(size),-10))
             image=silhouette(a)
             if number==25:
-                pikachu=Image.fromarray(a);shadow=image.copy()
+                shadow=image.copy()
             draw=ImageDraw.Draw(image)
             draw.rectangle((0,216,239,239),fill=(13,28,47))
             draw.text((120,215),'¿Quién es este Pokémon?',font=font(12,True),fill='white',anchor='mt')
@@ -71,8 +71,8 @@ def build():
     d.text((120,62),'ELIGE TU AVENTURA',font=font(11,True),fill=(228,237,248),anchor='mt')
     d.rounded_rectangle((8,82,231,149),radius=12,fill=(21,39,61),outline=(65,106,150),width=1)
     d.rounded_rectangle((8,157,231,224),radius=12,fill=(25,50,67),outline=(62,147,162),width=1)
-    art=pikachu.resize((64,64),Image.Resampling.LANCZOS)
-    # Keep the original image, composited over its familiar black background.
+    # Restore the original red PICODEX icon from the earlier launcher.
+    art=Image.open(ASSETS/'picodex-icon.png').convert('RGB').resize((64,64),Image.Resampling.LANCZOS)
     canvas.paste(art,(12,84))
     dark=shadow.resize((64,64),Image.Resampling.LANCZOS);canvas.paste(dark,(12,159))
     d.text((87,97),'PICODEX',font=font(20,True),fill=(255,215,70))

@@ -10,7 +10,8 @@ an illustrated landing page with two choices:
 
 ![Landing page](assets/quiz/landing-preview.png)
 
-Both cards reuse the existing Pikachu artwork. All 1,538 entries, including
+The PICODEX card restores the original red Pokédex device image; the game card
+uses the existing Pikachu silhouette. All 1,538 entries, including
 alternate forms, have matching silhouettes derived from that same archive.
 The original artwork SD card is reused unchanged. Only the Poké Ball startup
 and shutdown screens animate; Pokémon artwork remains static.
@@ -197,8 +198,9 @@ The player unloads before the app starts. Missing/damaged animation is logged;
 shutdown retains a procedural fallback. See `assets/splash/SOURCES.md`.
 
 Pokémon artwork and names originate from PokeAPI's official-artwork collection.
-The quiz and landing artwork derive from that existing material; no additional
-artwork source is required. Spanish translation provenance remains in the
+The silhouettes derive from that existing material. `assets/quiz/picodex-icon.png`
+restores the original launcher’s `menu_pokedex.dat` from the source frame project
+(96×96 RGB565), resized to fit the PICODEX landing card. Spanish translation provenance remains in the
 included JSON. Pokémon names, artwork and trademarks belong to their respective
 owners; Zel-Duh retains rights to the supplied GIF. No new license grant is
 asserted over upstream material. SD and display drivers retain their notices.
