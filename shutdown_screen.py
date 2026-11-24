@@ -26,14 +26,28 @@ def draw(lcd):
     lcd.show()
 
 
+def animate(lcd):
+    """Keep the normal goodbye frame as a fallback if the asset is unavailable."""
+    gc.collect()
+    draw(lcd)
+    started = time.ticks_ms()
+    try:
+        import pokeball
+        pokeball.play(lcd, 49, 1500)
+        print('Shutdown animation complete')
+    except Exception as e:
+        print('Shutdown animation unavailable:', e)
+    while time.ticks_diff(time.ticks_ms(), started) < 1500:
+        time.sleep_ms(20)
+
+
 def show(lcd):
     gc.collect()
     try:
         lcd.bl.duty_u16(32768)
-        draw(lcd)
+        animate(lcd)
     except Exception as e:
         print('Shutdown screen error:', e)
-    time.sleep_ms(1500)
     lcd.bl.duty_u16(0)
     lcd.fill(0)
     lcd.show()

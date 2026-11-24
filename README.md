@@ -2,10 +2,10 @@
 
 A standalone, offline Pokémon picture book for the **Waveshare
 RP2350-Touch-LCD-1.54**, running MicroPython 1.29. A Pokémon logo and Poké Ball splash shows `Loading....` for five seconds,
-then opens the first Pokémon: **no launcher, no app selection, no Virtual Pokemon**.
+with Zel-Duh’s animated Poké Ball, then opens the first Pokémon: **no launcher, no app selection, no Virtual Pokemon**.
 
 Includes 1,538 high-resolution 240 × 240 artwork entries, Spanish descriptions,
-touch and button controls, motion shuffle and shutdown screen.
+touch and button controls, motion shuffle and an animated `GOODBYE!` shutdown screen. Pokémon artwork remains static; only startup and shutdown animate.
 There is no battery percentage display or automatic charging popup.
 
 ## Controls
@@ -46,6 +46,8 @@ Copy these files to the board root:
 main.py
 boot_splash.mpy
 boot_splash.dat
+pokeball.mpy
+pokeball.dat
 lcd.mpy
 frame_app.mpy
 dex_description.mpy
@@ -76,7 +78,7 @@ new `main.py`; they do not need to be deleted to run this version.
 The matching `.mpy` firmware modules are included. Rebuild on the host with:
 
 ```sh
-for module in boot_splash lcd frame_app dex_description shutdown_screen sdcard; do
+for module in boot_splash pokeball lcd frame_app dex_description shutdown_screen sdcard; do
   uv tool run --from mpy-cross mpy-cross "$module.py"
 done
 python3 -m unittest discover -s tests -v
@@ -123,13 +125,14 @@ rendering, and shared I2C reads have a 50 ms timeout.
 The original splash assets and attribution are in `assets/splash/`. To rebuild:
 
 ```sh
-uv run --with pillow --with resvg-py python build_boot_splash.py
+uv run --no-project --with pillow python build_pokeball.py
+uv run --no-project --with pillow --with resvg-py python build_boot_splash.py
 ```
 
 The splash reuses the existing framebuffer and its module is unloaded before
 PICODEX imports, preserving heap space for artwork. Missing or incomplete
 splash data is logged and PICODEX still starts. On-board startup verification
-confirmed a 5,003 ms splash followed by the first artwork, with no menu.
+confirmed the GIF splash followed by the first static artwork, with no menu.
 
 ## Sources and rights
 
@@ -138,3 +141,19 @@ text and translation provenance are retained from the source project. The SD
 and Waveshare display driver sources retain their existing notices. No new
 license grant is asserted over upstream material. Pokémon artwork, names and
 trademarks belong to their respective owners.
+
+The supplied [Poké Ball GIF by Zel-Duh](https://www.deviantart.com/zel-duh/art/Pokeball-349366267)
+plays for five seconds at startup and 1.5 seconds at shutdown. Its 15 frames retain
+the original timing and stream row by row from `pokeball.dat` (472,360 bytes in
+internal flash), using the existing display buffer. Both animation files belong
+in the board root, not on the SD card. The player unloads before PICODEX starts.
+A missing/damaged animation is logged and cannot prevent startup or power-off;
+shutdown falls back to the procedural ball. Source and rights are documented in
+`assets/splash/SOURCES.md`.
+
+On-board GIF checks recorded 39 displayed frames with 38 pixel changes during
+the startup splash (minimum instrumented free heap 16,720 bytes). Description
+return restored identical artwork (8,048 bytes free after the instrumented
+check). A simulated long-left hold played the shutdown animation and reached
+power-off handling despite injected touch failures. Actual battery cutoff still
+requires a physical unplug/button check; USB can keep the chip powered.

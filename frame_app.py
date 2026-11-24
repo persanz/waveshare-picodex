@@ -27,8 +27,8 @@ def start(lcd, power, button):
 
 
     def draw_goodbye():
-        from shutdown_screen import draw
-        draw(lcd)
+        from shutdown_screen import animate
+        animate(lcd)
 
 
     def read_name(f, name_offset):
@@ -260,7 +260,6 @@ def start(lcd, power, button):
                             draw_goodbye()
                         except Exception:
                             pass
-                        time.sleep_ms(1500)
                         lcd.bl.duty_u16(0)
                         lcd.fill(0)
                         lcd.show()
