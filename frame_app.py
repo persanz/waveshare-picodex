@@ -1,7 +1,7 @@
 import time
 from machine import Pin, SPI, I2C
 
-def start(lcd, power, button):
+def start(lcd, power, button, mode='home'):
     import os
     import struct
     import deflate
@@ -17,6 +17,8 @@ def start(lcd, power, button):
     W = 240  # sprite canvas / screen width
     # Landscape is achieved via MADCTL (main.py) so art and text rotate together.
     LANDSCAPE = False
+    pokedex_index = 0
+    quiz_hidden = True
 
 
     def message(a, b):
@@ -66,6 +68,65 @@ def start(lcd, power, button):
         description_open = False
         os.remove('/picodex-return.tmp')
 
+    def home_button():
+        lcd.fill_rect(88, 0, 64, 18, BLACK)
+        lcd.text('INICIO', 96, 5, WHITE)
+        if mode == 'quiz' and not quiz_hidden:
+            lcd.fill_rect(176, 0, 64, 18, BLACK)
+            lcd.text('OTRO >', 184, 5, ORANGE)
+
+    def show_home():
+        nonlocal mode, pokedex_index, description_open, touch_used
+        if mode == 'picodex':
+            pokedex_index = index
+        mode = 'home'
+        touch_used = True  # consume a pending touch release after a button-home gesture
+        if description_open:
+            try:
+                os.remove('/picodex-return.tmp')
+            except OSError:
+                pass
+        description_open = False
+        import gc
+        gc.collect()
+        try:
+            with open('/landing.dat', 'rb') as f:
+                if f.readinto(lcd.buffer) != 115200:
+                    raise OSError('Incomplete landing page')
+            lcd.show()
+        except OSError as e:
+            print('Landing artwork unavailable:', e)
+            lcd.fill(BLACK)
+            lcd.text('PICODEX', 80, 110, ORANGE)
+            lcd.text('QUIEN ES ESTE POKEMON?', 32, 185, WHITE)
+            lcd.show()
+        print('Landing page ready')
+
+    def select_mode(choice):
+        nonlocal mode, index, quiz_hidden, previous, motion_samples, motion_armed, still_samples
+        mode = choice
+        index = pokedex_index
+        quiz_hidden = True
+        if mode == 'quiz':
+            index = random.randrange(count)
+        previous = None
+        motion_samples = 0
+        motion_armed = False
+        still_samples = 0
+        show_sprite(index)
+
+    def quiz_step():
+        nonlocal index, quiz_hidden
+        if quiz_hidden:
+            quiz_hidden = False
+        else:
+            candidate = random.randrange(count - 1) if count > 1 else 0
+            if count > 1 and candidate >= index:
+                candidate += 1
+            index = candidate
+            quiz_hidden = True
+        show_sprite(index)
+
     def show_sprite(index):
         nonlocal current_art_id, current_name, description_open
         # Release description-rendering garbage before allocating the decoder.
@@ -75,7 +136,8 @@ def start(lcd, power, button):
         with open('/pokemon_order.bin', 'rb') as order:
             order.seek(2 + index * 2)
             index = struct.unpack('<H', order.read(2))[0]
-        with open(DATA, 'rb') as f:
+        hidden = mode == 'quiz' and quiz_hidden
+        with open('/sd/waveshare_pokemon_frame/quiz.dat' if hidden else DATA, 'rb') as f:
             f.seek(4 + index * 16)
             number, offset, size, name_offset = struct.unpack('<IIII', f.read(16))
             current_art_id = number
@@ -91,48 +153,27 @@ def start(lcd, power, button):
                     raise OSError('Incomplete sprite')
                 start = row * W * 2
                 screen[start:start + W * 2] = source
+            stream.close()
+            del stream, source, screen
+            gc.collect()
             name = read_name(f, name_offset).upper()
             current_name = name
-            # Draw a footer band with the Pokémon number (white) before the name (orange).
-            lcd.fill_rect(0, 216, 240, 24, BLACK)
-            # Form IDs above 10000 are PokeAPI identifiers, not Pokédex numbers.
-            if number >= 10000:
-                try:
-                    with open('/pokemon_dex.bin', 'rb') as dex:
-                        dex.seek((number - 10000) * 2)
-                        entry = dex.read(2)
-                    number = struct.unpack('<H', entry)[0] if len(entry) == 2 else 0
-                except OSError:
-                    number = 0
-            num_label = str(number) if number else '?'
-            max_chars = 30  # 240px / 8px font
-            if name:
-                total = len(num_label) + 1 + len(name)
-                if total <= max_chars:
-                    # number before name on one centred line, different colours
-                    start_x = (240 - total*8) // 2
-                    lcd.text(num_label, start_x, 224, WHITE)
-                    lcd.text(name, start_x + len(num_label)*8 + 8, 224, ORANGE)
-                else:
-                    # long name: number on its own line, name centred below
-                    words = name.split(' ')
-                    line1 = ''
-                    for w in words:
-                        if len((line1 + ' ' + w).strip()) <= max_chars:
-                            line1 = (line1 + ' ' + w).strip()
-                        else:
-                            break
-                    rest = name[len(line1):].strip()
-                    line2 = rest if len(rest) <= max_chars else rest[:max_chars-1] + '…'
-                    lcd.text(num_label, (240 - len(num_label)*8)//2, 218, WHITE)
-                    lcd.text(line1, (240 - len(line1)*8)//2, 224, ORANGE)
-                    if line2:
-                        lcd.text(line2, (240 - len(line2)*8)//2, 232, ORANGE)
-            else:
-                lcd.text(num_label, (240 - len(num_label)*8)//2, 224, WHITE)
-            lcd.show()
+        # Release decoder buffers and the file cache before importing the footer.
+        gc.collect()
+        if not hidden:
+            import pokemon_footer
+            number = pokemon_footer.draw(lcd, number, name)
+            import sys
+            del sys.modules['pokemon_footer']
+            del pokemon_footer
+            gc.collect()
+        home_button()
+        lcd.show()
         description_open = False
-        print('Displaying Pokemon', number, name)
+        if hidden:
+            print('Quiz silhouette', index)
+            return
+        print('Quiz reveal' if mode == 'quiz' else 'Displaying Pokemon', number, name)
 
 
     try:
@@ -193,7 +234,12 @@ def start(lcd, power, button):
     still_samples = 0
     MOTION_NEEDED = 2          # two samples (~200ms); reject isolated bumps
     try:
-        show_sprite(index)
+        if mode == 'home':
+            show_home()
+        elif mode == 'quiz':
+            select_mode('quiz')
+        else:
+            show_sprite(index)
     except Exception as e:
         print('Image error:', e)
         message('IMAGE ERROR', 'Check SD files')
@@ -228,6 +274,8 @@ def start(lcd, power, button):
     touch_x = 0
     touch_y = 0
     touch_used = False
+    both_since = None
+    both_used = False
 
     while True:
         try:
@@ -237,6 +285,27 @@ def start(lcd, power, button):
             right = _debounce(right_btn, right_prev)
             now = time.ticks_ms()
 
+            # A deliberate two-button hold returns home from any page.
+            # Handle it before individual buttons so it cannot also power off.
+            if not left and not right:
+                if both_since is None:
+                    both_since = now
+                if not both_used and time.ticks_diff(now, both_since) >= 600:
+                    show_home()
+                    both_used = True
+                left_down_since = right_down_since = None
+                left_prev, right_prev = left, right
+                time.sleep_ms(50)
+                continue
+            if both_since is not None:
+                left_down_since = right_down_since = None
+                left_prev, right_prev = left, right
+                if left and right:
+                    both_since = None
+                    both_used = False
+                time.sleep_ms(50)
+                continue
+
             # Left button: short press -> previous; long press -> power off
             if left != left_prev:
                 if left == 0:
@@ -245,8 +314,13 @@ def start(lcd, power, button):
                     if left_down_since is not None:
                         if time.ticks_diff(now, left_down_since) < 1500:
                             if not shutdown:
-                                index = (index - 1) % count
-                                show_sprite(index)
+                                if mode == 'home':
+                                    select_mode('picodex')
+                                elif mode == 'quiz':
+                                    quiz_step()
+                                else:
+                                    index = (index - 1) % count
+                                    show_sprite(index)
                                 previous = None
                                 motion_samples = 0
                     left_down_since = None
@@ -277,15 +351,20 @@ def start(lcd, power, button):
                 else:
                     if right_down_since is not None and not shutdown:
                         if time.ticks_diff(now, right_down_since) < 1500:
-                            index = (index + 1) % count
-                            show_sprite(index)
+                            if mode == 'home':
+                                select_mode('quiz')
+                            elif mode == 'quiz':
+                                quiz_step()
+                            else:
+                                index = (index + 1) % count
+                                show_sprite(index)
                             previous = None
                             motion_samples = 0
                     right_down_since = None
                 right_prev = right
             else:
                 if right == 0 and right_down_since is not None and not shutdown:
-                    if time.ticks_diff(now, right_down_since) >= 2000:
+                    if mode == 'picodex' and time.ticks_diff(now, right_down_since) >= 2000:
                         index = 0
                         show_sprite(index)
                         previous = None
@@ -316,7 +395,7 @@ def start(lcd, power, button):
                                 else:
                                     restore_artwork()
                                 touch_used = True
-                        if not touch_used and 80 <= touch_x < 160 and 40 <= touch_y < 200:
+                        if mode == 'picodex' and not touch_used and 80 <= touch_x < 160 and 40 <= touch_y < 200:
                             if not (80 <= x < 160 and 40 <= y < 200):
                                 touch_used = True
                             elif time.ticks_diff(now, touch_since) >= 800:
@@ -335,7 +414,18 @@ def start(lcd, power, button):
                                 previous = None
                                 motion_samples = 0
                     elif was_touching and not touch_used and not description_open:
-                        if 0 <= touch_x < 80 or 160 <= touch_x < 240:
+                        if 80 <= touch_x < 160 and touch_y < 24 and mode != 'home':
+                            show_home()
+                            previous = None
+                            motion_samples = 0
+                        elif mode == 'home':
+                            if 82 <= touch_y <= 149:
+                                select_mode('picodex')
+                            elif 157 <= touch_y <= 224:
+                                select_mode('quiz')
+                        elif mode == 'quiz':
+                            quiz_step()
+                        elif 0 <= touch_x < 80 or 160 <= touch_x < 240:
                             index = (index + (-1 if touch_x < 120 else 1)) % count
                             show_sprite(index)
                             previous = None
@@ -345,7 +435,7 @@ def start(lcd, power, button):
 
             # Sustained movement chooses a different random artwork entry.
             # One change per shake; re-arm after half a second of calm.
-            if not shutdown and not description_open and not touch_down and left and right and time.ticks_diff(now, last_sample) >= 100:
+            if mode == 'picodex' and not shutdown and not description_open and not touch_down and left and right and time.ticks_diff(now, last_sample) >= 100:
                 last_sample = now
                 try:
                     xyz = struct.unpack('<hhh', imu.readfrom_mem(0x6b, 0x35, 6))
@@ -376,7 +466,7 @@ def start(lcd, power, button):
                     previous = None
                     motion_samples = 0
                     print('PICODEX motion/read error:', e)
-            elif shutdown or description_open or touch_down or not left or not right:
+            elif mode != 'picodex' or shutdown or description_open or touch_down or not left or not right:
                 previous = None
                 motion_samples = 0
 

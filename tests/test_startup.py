@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 
 class StartupTests(unittest.TestCase):
-    def test_splash_precedes_picodex_without_loading_menu(self):
+    def test_splash_precedes_app_with_default_landing_page(self):
         events = []
         pins = {}
         class Pin:

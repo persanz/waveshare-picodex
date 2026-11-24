@@ -1,4 +1,4 @@
-"""Standalone PICODEX: allocate the LCD before importing the app."""
+"""PICODEX and silhouette game: allocate the LCD before importing the app."""
 import gc
 gc.threshold(1024)
 from machine import Pin

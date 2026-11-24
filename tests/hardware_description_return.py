@@ -28,7 +28,7 @@ class Bus:
   return self.bus.readfrom_mem(addr,reg,n)
 frame_app.I2C=Bus
 try:
- frame_app.start(lcd,power,Pin(24,Pin.IN,Pin.PULL_UP))
+ frame_app.start(lcd,power,Pin(24,Pin.IN,Pin.PULL_UP),'picodex')
 except KeyboardInterrupt:
  assert len(hashes)==3, len(hashes)
  assert hashes[0]==hashes[2], 'Artwork changed after description'

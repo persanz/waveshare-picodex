@@ -42,7 +42,7 @@ class Pins:
   return Left() if n==24 else real_pin(n,*a,**kw)
 frame_app.Pin=Pins
 try:
- frame_app.start(lcd,power,Pin(24,Pin.IN,Pin.PULL_UP))
+ frame_app.start(lcd,power,Pin(24,Pin.IN,Pin.PULL_UP),'picodex')
 except KeyboardInterrupt:
  assert power.off, 'Power latch not released'
  print('PASS: long-left shutdown despite repeated touch failures')
